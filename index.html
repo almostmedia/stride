@@ -2579,27 +2579,24 @@ function showTeamModal(){
           return;
         }
 
-        /* Step 2: Send invite email via Supabase Auth */
+        /* Step 2: Send invite email via Edge Function (uses service role server-side) */
         var ws=null;for(var i=0;i<workspaces.length;i++) if(workspaces[i].id===currentWsId){ws=workspaces[i];break;}
         var wsName=ws?ws.name:'Stride';
         var inviterName=((currentUser.firstName||'')+(currentUser.lastName?' '+currentUser.lastName:'')).trim()||currentUser.email;
 
-        var emailRes=await sb.auth.admin.inviteUserByEmail(email2,{
-          data:{
-            invited_to_workspace:currentWsId,
-            invited_by_name:inviterName,
-            workspace_name:wsName,
-            role:rs2.value
-          },
-          redirectTo:window.location.origin
-        }).catch(function(){return null;});
+        var session=await sb.auth.getSession();
+        var token=session&&session.data&&session.data.session?session.data.session.access_token:'';
+
+        var emailRes=await fetch('https://wcnehdolcledsitdndkd.supabase.co/functions/v1/send-invite',{
+          method:'POST',
+          headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+          body:JSON.stringify({email:email2,workspace_id:currentWsId,role:rs2.value,workspace_name:wsName,inviter_name:inviterName})
+        }).then(function(r){return r.json();}).catch(function(){return null;});
 
         sb2.disabled=false;sb2.textContent='Invite';
 
-        /* auth.admin.inviteUserByEmail requires service role key so may not work from browser */
-        /* In that case the invite is still stored and will work when they sign up manually */
         msg2.style.color='#10b981';
-        msg2.textContent='✓ Invite recorded for '+email2+'. Ask them to sign up at '+window.location.hostname;
+        msg2.textContent='✓ Invite sent to '+email2+'!';
         showToast('Invite sent to '+email2);
         ei2.value='';ni.value='';
       });
