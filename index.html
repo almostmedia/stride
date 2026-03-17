@@ -2334,12 +2334,69 @@ window.toggleProfileMenu=function(){
   pItem('<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>','Switch workspace','',window.goToWorkspaceSelector);
   if(isAdmin())pItem('<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>','Workspace settings','',window.showWorkspaceSettings);
   if(currentProfile&&currentProfile.is_admin)pItem('<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>','Super admin panel','',window.showSuperAdminPanel);
+  pItem('<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>','Edit profile','',window.showEditProfileModal);
   p.appendChild(el('div','pdd-sep'));
   pItem('<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>','Sign out','danger',doLogout);
   positionPop(p,btn);
 };
 
 function doLogout(){sb.auth.signOut().then(function(){currentUser=null;currentProfile=null;currentBilling=null;currentWsId=null;if(realtimeSub){sb.removeChannel(realtimeSub);realtimeSub=null;}var appEl=document.getElementById('screen-app');appEl.style.display='none';appEl.classList.remove('visible');document.getElementById('screen-auth').style.display='flex';document.getElementById('login-email').value='';document.getElementById('login-pw').value='';document.getElementById('login-error').className='auth-error-box';switchAuthTab('login');});}
+
+/* ════════════════════════════════════════════════════════════════
+   EDIT PROFILE MODAL
+════════════════════════════════════════════════════════════════ */
+window.showEditProfileModal=function(){
+  var mo=el('div','mo');document.body.appendChild(mo);
+  var mb=el('div','mb');mb.style.maxWidth='420px';
+  var hd=el('div','modal-header');
+  hd.appendChild(el('span','modal-title','Edit profile'));
+  var hx=el('button','modal-close','✕');hx.addEventListener('click',function(){document.body.removeChild(mo);});hd.appendChild(hx);
+  mb.appendChild(hd);
+  var form=el('div');form.style.cssText='padding:20px;display:flex;flex-direction:column;gap:16px;';
+  function labeledInput(labelTxt,val,placeholder){
+    var wrap=el('div');
+    var lbl=el('div');lbl.style.cssText='font-size:12px;font-weight:600;color:#374151;margin-bottom:5px;';lbl.textContent=labelTxt;
+    var inp=el('input','fi');inp.value=val;inp.placeholder=placeholder;
+    wrap.appendChild(lbl);wrap.appendChild(inp);
+    return {wrap:wrap,inp:inp};
+  }
+  var fn=labeledInput('First name',currentProfile.first_name||'','First name');
+  var ln=labeledInput('Last name',currentProfile.last_name||'','Last name');
+  var emWrap=el('div');
+  var emLbl=el('div');emLbl.style.cssText='font-size:12px;font-weight:600;color:#374151;margin-bottom:5px;';emLbl.textContent='Email';
+  var emVal=el('div');emVal.style.cssText='font-size:13px;color:#6b7280;padding:8px 10px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;';emVal.textContent=currentUser.email||'';
+  emWrap.appendChild(emLbl);emWrap.appendChild(emVal);
+  var msg=el('div');msg.style.fontSize='13px';
+  var btnRow=el('div');btnRow.style.cssText='display:flex;justify-content:flex-end;gap:10px;';
+  var cancelBtn=el('button','mbtns','Cancel');cancelBtn.addEventListener('click',function(){document.body.removeChild(mo);});
+  var saveBtn=el('button','mbtn','Save changes');
+  saveBtn.addEventListener('click',async function(){
+    var firstName=fn.inp.value.trim();
+    var lastName=ln.inp.value.trim();
+    if(!firstName){msg.style.color='#ef4444';msg.textContent='First name is required.';fn.inp.focus();return;}
+    saveBtn.disabled=true;saveBtn.textContent='Saving...';msg.textContent='';
+    var res=await sb.from('profiles').update({first_name:firstName,last_name:lastName}).eq('id',currentUser.id);
+    if(res.error){
+      msg.style.color='#ef4444';msg.textContent='Error: '+res.error.message;
+      saveBtn.disabled=false;saveBtn.textContent='Save changes';
+      return;
+    }
+    currentProfile.first_name=firstName;currentProfile.last_name=lastName;
+    currentProfile.firstName=firstName;currentProfile.lastName=lastName;
+    currentUser.firstName=firstName;currentUser.lastName=lastName;
+    document.getElementById('topbar-username').textContent=firstName;
+    var avEl=document.getElementById('topbar-av');avEl.textContent=userInitials(currentUser);
+    team.forEach(function(m){if(m.id===currentUser.id){m.name=(firstName+(lastName?' '+lastName:'')).trim()||'Unknown';}});
+    msg.style.color='#10b981';msg.textContent='✓ Profile updated!';
+    saveBtn.disabled=false;saveBtn.textContent='Save changes';
+    setTimeout(function(){if(document.body.contains(mo))document.body.removeChild(mo);},900);
+  });
+  btnRow.appendChild(cancelBtn);btnRow.appendChild(saveBtn);
+  form.appendChild(fn.wrap);form.appendChild(ln.wrap);form.appendChild(emWrap);form.appendChild(msg);form.appendChild(btnRow);
+  mb.appendChild(form);
+  mo.appendChild(mb);
+  mo.addEventListener('click',function(e){if(e.target===mo)document.body.removeChild(mo);});
+};
 
 /* ════════════════════════════════════════════════════════════════
    SUPER ADMIN PANEL
