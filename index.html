@@ -1789,6 +1789,14 @@ function subscribeRealtime(){
       /* Reload workspace data silently on any task change */
       loadWsData(currentWsId).then(function(){render();});
     })
+    .on('postgres_changes',{event:'*',schema:'public',table:'memberships'},function(payload){
+      /* Reload when team membership changes (new invite accepted, member removed) */
+      loadWsData(currentWsId).then(function(){render();});
+    })
+    .on('postgres_changes',{event:'*',schema:'public',table:'profiles'},function(payload){
+      /* Reload when a team member updates their profile */
+      loadWsData(currentWsId).then(function(){render();});
+    })
     .subscribe();
 }
 
