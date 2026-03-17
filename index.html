@@ -2547,6 +2547,81 @@ function showTeamModal(){
       list.appendChild(row);
     });
     mb.appendChild(list);
+
+    // -- Pending Invites Section --
+    var pendSec=el('div','pending-invites-section');
+    pendSec.style.marginTop='16px';
+    var pendHd=el('div','section-label','Pending Invites');
+    pendSec.appendChild(pendHd);
+    var pendList=el('div','pending-invites-list');
+    pendList.style.marginTop='8px';
+    var piLoad=document.createElement('div');
+    piLoad.style.cssText='color:#888;font-size:13px;padding:4px 0';
+    piLoad.textContent='Loading...';
+    pendList.appendChild(piLoad);
+    pendSec.appendChild(pendList);
+    mb.appendChild(pendSec);
+    sb.from('invites').select('*').eq('workspace_id',currentWsId).then(function(pRes){
+      pendList.innerHTML='';
+      var pRows=(pRes&&pRes.data)||[];
+      if(!pRows.length){
+        var piNone=document.createElement('div');
+        piNone.style.cssText='color:#888;font-size:13px;padding:4px 0';
+        piNone.textContent='No pending invites.';
+        pendList.appendChild(piNone);
+      } else {
+        pRows.forEach(function(pinv){
+          var prow=document.createElement('div');
+          prow.style.cssText='display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f0f0f0';
+          var pSpan=document.createElement('span');
+          pSpan.style.cssText='flex:1;font-size:13px;color:#333';
+          pSpan.textContent=pinv.email;
+          var pBadge=document.createElement('span');
+          pBadge.style.cssText='font-size:11px;padding:2px 8px;border-radius:10px;background:#e8f4f8;color:#2a7fa5;font-weight:500';
+          pBadge.textContent=pinv.role||'member';
+          var pResend=document.createElement('button');
+          pResend.textContent='Resend';
+          pResend.style.cssText='font-size:12px;padding:3px 10px;border:1px solid #2a7fa5;background:#fff;color:#2a7fa5;border-radius:4px;cursor:pointer';
+          pResend.onclick=(function(inv,btn){
+            return function(){
+              btn.disabled=true;btn.textContent='Sending...';
+              sb.auth.getSession().then(function(sess){
+                var tok=sess&&sess.data&&sess.data.session?sess.data.session.access_token:'';
+                var wsn='Stride';for(var wi=0;wi<workspaces.length;wi++){if(workspaces[wi].id===currentWsId){wsn=workspaces[wi].name||wsn;break;}}
+                fetch('https://wcnehdolcledsitdndkd.supabase.co/functions/v1/send-invite',{
+                  method:'POST',
+                  headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok},
+                  body:JSON.stringify({email:inv.email,workspace_id:currentWsId,role:inv.role||'member',workspace_name:wsn,inviter_name:''})
+                }).then(function(r){return r.json();}).then(function(d){
+                  btn.textContent=(d&&d.error)?'Error':'Sent!';
+                  setTimeout(function(){btn.disabled=false;btn.textContent='Resend';},2500);
+                }).catch(function(){btn.textContent='Error';btn.disabled=false;});
+              });
+            };
+          })(pinv,pResend);
+          var pRemove=document.createElement('button');
+          pRemove.textContent='Remove';
+          pRemove.style.cssText='font-size:12px;padding:3px 10px;border:1px solid #ddd;background:#fff;color:#c0392b;border-radius:4px;cursor:pointer';
+          pRemove.onclick=(function(inv,row,btn){
+            return function(){
+              btn.disabled=true;
+              sb.from('invites').delete().eq('id',inv.id).then(function(){
+                row.remove();
+                if(!pendList.children.length){
+                  var nd=document.createElement('div');
+                  nd.style.cssText='color:#888;font-size:13px;padding:4px 0';
+                  nd.textContent='No pending invites.';
+                  pendList.appendChild(nd);
+                }
+              });
+            };
+          })(pinv,prow,pRemove);
+          prow.appendChild(pSpan);prow.appendChild(pBadge);prow.appendChild(pResend);prow.appendChild(pRemove);
+          pendList.appendChild(prow);
+        });
+      }
+    });
+    // -- End Pending Invites --
     if(isAdminUser){
       var inv=el('div','invite-section');inv.appendChild(el('div','invite-label','Invite by email'));
       var irow=el('div','invite-row');var ei2=el('input','fi');ei2.style.flex='1';ei2.placeholder='colleague@company.com';var ni=el('input','fi');ni.style.width='90px';ni.placeholder='Name';
