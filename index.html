@@ -1573,6 +1573,9 @@ async function showWorkspaceSelector(){
   document.getElementById('ws-enter-btn').disabled=true;
   showLoading('Loading workspaces...');
 
+  /* Accept any pending invites for this user before loading workspaces */
+  try { await sb.rpc('accept_pending_invites'); } catch(e) {}
+
   /* Step 1: get memberships for this user */
   var mRes=await sb.from('memberships').select('workspace_id,role').eq('user_id',currentUser.id);
   workspaces=[];memberships=[];
